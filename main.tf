@@ -49,7 +49,7 @@ resource "aws_internet_gateway" "production-internet-gateway" {
 
 # Create a custom Route Table
 resource "aws_route_table" "production-route-table" {
- vpc_id = aws_vpc.production-vpc
+ vpc_id = aws_vpc.production-vpc.id
 
  route  {
   cidr_block = "0.0.0.0/0"
@@ -58,8 +58,8 @@ resource "aws_route_table" "production-route-table" {
  }
 
  route {
-  ipv6_cidr_block = "::/0"
-  egress_only_gateway_id = aws_internet_gateway.production-internet-gateway.id
+  ipv6_cidr_block        = "::/0"
+  gateway_id = aws_internet_gateway.production-internet-gateway.id
  }
 
  tags = {
@@ -93,31 +93,31 @@ resource "aws_security_group" "production-security-group" {
   description = "Allow TLS inbound traffic"
   vpc_id = aws_vpc.production-vpc.id
 
-  ingress =  {
+  ingress   {
     description = "HTTPS"
     from_port = 443
-    protocol = tcp
+    protocol = "tcp"
     to_port = 443
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress =  {
+  ingress   {
     description = "HTTP"
     from_port = 80
-    protocol = tcp
+    protocol = "tcp"
     to_port = 80
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress =  {
+  ingress  {
     description = "SSH"
     from_port = 22
-    protocol = tcp
+    protocol = "tcp"
     to_port = 22
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  egress = {
+  egress  {
     from_port = 0
     to_port   = 0
     protocol  = "-1"
@@ -135,8 +135,8 @@ resource "aws_security_group" "production-security-group" {
 
 resource "aws_network_interface" "production-web-server-network-interface" {
   subnet_id = aws_subnet.production-subnet-1.id
-  private_ip = ["10.0.1.50"]
-  security_groups =  [aws_security_group.production-security-group]  
+  private_ips = ["10.0.1.50"]
+  security_groups =  [aws_security_group.production-security-group.id]  
 }
 
 # Assign an elastic IP to the network interface created above
@@ -144,7 +144,7 @@ resource "aws_eip" "production-eip" {
   vpc = true
   network_interface = aws_network_interface.production-web-server-network-interface.id
   associate_with_private_ip = "10.0.1.50"
-  depends_on = aws_internet_gateway.production-internet-gateway
+  depends_on = [aws_internet_gateway.production-internet-gateway]
   
 }
 
@@ -161,11 +161,15 @@ resource "aws_instance" "web-server-instance" {
   }
 
   user_data = <<-EOF
-              #!/bin/bash
-              sudo apt update -y
-              sudo apt install apache2 -y
-              sudo systemctl start apache2
-              sudo bash -c 'echo your very first web server > /var/www/html/index.html'
+                #!/bin/bash
+                sudo apt update -y
+                sudo apt install apache2 -y
+                sudo systemctl start apache2
+                sudo bash -c 'echo your very first web server > /var/www/html/index.html'
+                EOF
+  tags = {
+    Name = "web-server"
+  }
 
 
   
